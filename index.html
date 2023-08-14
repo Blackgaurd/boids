@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boids Simulation</title>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <button id="play"></button>
+    <button id="show-debug">Show Debug</button>
+    <p id="debug"></p>
+</body>
+<script type="module" src="app.js"></script>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+    button {
+        position: absolute;
+        left: 0;
+        z-index: 50;
+        margin: 0.5rem;
+        padding: 0.5rem;
+        font-size: large;
+        font-weight: bold;
+        width: 5rem;
+    }
+
+    #play {
+        top: 0;
+    }
+
+    #show-debug {
+        top: 3rem;
+    }
+
+    #debug {
+        position: absolute;
+        top: 0;
+        right: 0;
+        z-index: 50;
+        margin: 0.5rem;
+        padding: 0.5rem;
+        background-color: rgba(255, 255, 255, 0.5);
+    }
+</style>
+
+</html>

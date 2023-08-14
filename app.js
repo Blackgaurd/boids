@@ -1,33 +1,22 @@
 import init, { Vec2, World } from './pkg/boids.js'
 
 let debugButton = document.getElementById('show-debug')
-let debugPanel = document.getElementById('debug')
 let debugToggle = false
 debugButton.innerText = 'Show debug'
-debugPanel.style.display = 'none'
 debugButton.addEventListener('click', () => {
     if (!debugToggle) {
-        debugPanel.style.display = 'block'
         debugButton.innerText = 'Hide debug'
         debugToggle = true
     } else {
-        debugPanel.style.display = 'none'
         debugButton.innerText = 'Show debug'
         debugToggle = false
     }
 })
 
-function updateDebugPanel(world) {
-    if (!debugToggle) {
-        return
-    }
-    let maxSpeed = world.max_boid_speed()
-    let minSpeed = world.min_boid_speed()
-    let numBoids = world.num_boids()
-    debugPanel.innerText = `Boids: ${numBoids}
-    Param max speed: ${world.max_speed}
-    Max speed: ${maxSpeed.toFixed(2)}
-    Min speed: ${minSpeed.toFixed(2)}`
+function rotateVec2(vec, radians) {
+    const COS = Math.cos(radians),
+        SIN = Math.sin(radians)
+    return Vec2.new(vec.x * COS - vec.y * SIN, vec.x * SIN + vec.y * COS)
 }
 
 function drawBoids(ctx, world) {
@@ -35,23 +24,62 @@ function drawBoids(ctx, world) {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
     for (let i = 0; i < world.num_boids(); i++) {
         let boid = world.get_boid(i)
-        let pos = boid.pos
+        let vel = boid.vel.normalize()
+        let bot_left = rotateVec2(vel, (Math.PI * 11) / 12)
+            .mult_num(12)
+            .add_vec(boid.pos)
+        let bot_right = rotateVec2(vel, (Math.PI * 13) / 12)
+            .mult_num(12)
+            .add_vec(boid.pos)
+
         ctx.beginPath()
-        ctx.arc(pos.x, pos.y, 5, 0, 2 * Math.PI)
+        ctx.moveTo(boid.pos.x, boid.pos.y)
+        ctx.lineTo(bot_left.x, bot_left.y)
+        ctx.lineTo(bot_right.x, bot_right.y)
         ctx.fill()
     }
 
     if (debugToggle) {
+        // draw protect range
         ctx.strokeStyle = 'red'
+        ctx.lineWidth = 1
+        ctx.setLineDash([])
         for (let i = 0; i < world.num_boids(); i++) {
             let boid = world.get_boid(i)
-            let pos = boid.pos
-            let vel = boid.vel
             ctx.beginPath()
-            ctx.moveTo(pos.x, pos.y)
-            ctx.lineTo(pos.x + vel.x * 10, pos.y + vel.y * 10)
+            ctx.arc(boid.pos.x, boid.pos.y, world.protect_range, 0, Math.PI * 2)
             ctx.stroke()
         }
+
+        // draw visible range
+        ctx.strokeStyle = 'green'
+        ctx.lineWidth = 1
+        ctx.setLineDash([])
+        for (let i = 0; i < world.num_boids(); i++) {
+            let boid = world.get_boid(i)
+            ctx.beginPath()
+            ctx.arc(boid.pos.x, boid.pos.y, world.visible_range, 0, Math.PI * 2)
+            ctx.stroke()
+        }
+
+        // draw margin
+        ctx.strokeStyle = 'black'
+        ctx.lineWidth = 1
+        ctx.setLineDash([5, 5])
+        let top_left = Vec2.new(world.margin, world.margin)
+        let top_right = Vec2.new(ctx.canvas.width - world.margin, world.margin)
+        let bot_left = Vec2.new(world.margin, ctx.canvas.height - world.margin)
+        let bot_right = Vec2.new(
+            ctx.canvas.width - world.margin,
+            ctx.canvas.height - world.margin
+        )
+        ctx.beginPath()
+        ctx.moveTo(top_left.x, top_left.y)
+        ctx.lineTo(top_right.x, top_right.y)
+        ctx.lineTo(bot_right.x, bot_right.y)
+        ctx.lineTo(bot_left.x, bot_left.y)
+        ctx.lineTo(top_left.x, top_left.y)
+        ctx.stroke()
     }
 }
 
@@ -67,8 +95,8 @@ init().then(() => {
         visible_range: 40,
         align_factor: 0.05,
         cohesion_factor: 0.0005,
-        margin: 100,
-        turn_factor: 0.5,
+        margin: 40,
+        turn_factor: 0.2,
         max_speed: 6,
         min_speed: 2,
     }
@@ -85,7 +113,7 @@ init().then(() => {
         params.min_speed
     )
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 100; i++) {
         world.add_boid(
             Vec2.new(
                 Math.random() * canvas.width,
@@ -99,7 +127,6 @@ init().then(() => {
 
     // draw once to spawn boids
     drawBoids(ctx, world)
-    updateDebugPanel(world)
     let interval = null
 
     let playButton = document.getElementById('play')
@@ -113,10 +140,30 @@ init().then(() => {
             interval = setInterval(() => {
                 world.tick()
                 drawBoids(ctx, world)
-                updateDebugPanel(world)
             }, 30)
             playButton.innerText = 'Pause'
         }
     }
     playButton.addEventListener('click', playPause)
+
+    let protectSlider = document.getElementById('protect-range')
+    protectSlider.value = params.protect_range
+    protectSlider.addEventListener('change', () => {
+        params.protect_range = protectSlider.value
+        world.protect_range = params.protect_range
+    })
+
+    let visibleSlider = document.getElementById('visible-range')
+    visibleSlider.value = params.visible_range
+    visibleSlider.addEventListener('change', () => {
+        params.visible_range = visibleSlider.value
+        world.visible_range = params.visible_range
+    })
+
+    let marginSlider = document.getElementById('world-margin')
+    marginSlider.value = params.margin
+    marginSlider.addEventListener("change", () => {
+        params.margin = marginSlider.value
+        world.margin = params.margin
+    })
 })

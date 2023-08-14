@@ -9,9 +9,26 @@
 
 <body>
     <canvas id="canvas"></canvas>
+
+    <!-- top left -->
     <button id="play"></button>
-    <button id="show-debug">Show Debug</button>
-    <p id="debug"></p>
+    <button id="show-debug">Show debug</button>
+
+    <!-- top right -->
+    <div class="params">
+        <label>
+            Protect range
+            <input type="range" id="protect-range" min="0" max="100" value="8">
+        </label>
+        <label>
+            Visible range
+            <input type="range" id="visible-range" min="0" max="100" val="40">
+        </label>
+        <label>
+            World margin
+            <input type="range" id="world-margin" min="0" max="100" val="25">
+        </label>
+    </div>
 </body>
 <script type="module" src="app.js"></script>
 <style>
@@ -20,33 +37,48 @@
         padding: 0;
     }
 
-    button {
-        position: absolute;
-        left: 0;
-        z-index: 50;
-        margin: 0.5rem;
-        padding: 0.5rem;
-        font-size: large;
-        font-weight: bold;
-        width: 5rem;
-    }
-
     #play {
+        position: absolute;
         top: 0;
+        left: 0;
     }
 
     #show-debug {
+        position: absolute;
         top: 3rem;
+        left: 0;
     }
 
-    #debug {
+    button {
+        padding: 0.5rem;
+        margin: 0.5rem;
+        width: 6rem;
+        font-size: large;
+        font-weight: bold;
+    }
+
+    .params {
         position: absolute;
         top: 0;
         right: 0;
-        z-index: 50;
         margin: 0.5rem;
         padding: 0.5rem;
-        background-color: rgba(255, 255, 255, 0.5);
+        width: max-content;
+        background-color: rgba(188, 255, 149, 0.8);
+    }
+
+    .params > label {
+        font-size: large;
+        font-weight: bold;
+        display: flex;
+        margin-right: 10rem;
+        margin-bottom: 0.2rem;
+        margin-top: 0.2rem;
+    }
+
+    .params > label > input {
+        position: absolute;
+        right: 0;
     }
 </style>
 

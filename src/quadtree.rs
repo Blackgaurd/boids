@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::vec2::{Vec2, Vec2Array};
 

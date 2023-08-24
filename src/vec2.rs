@@ -1,5 +1,5 @@
 use std::{ops::*, fmt::Debug};
-use wasm_bindgen::prelude::*;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[wasm_bindgen]

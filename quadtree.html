@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quad Tree Demonstration</title>
+</head>
+
+<body>
+    <canvas id="canvas"></canvas>
+    <p id="total-points">Total points: 0</p>
+    <p id="input-text">Add points: 0</p>
+    <button id="clear-points">Clear points</button>
+</body>
+<script type="module" src="quadtree.js"></script>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+    #total-points {
+        position: absolute;
+        top: 0;
+        left: 0;
+        margin: 0.5rem;
+    }
+
+    #input-text {
+        position: absolute;
+        top: 1.5rem;
+        left: 0;
+        margin: 0.5rem;
+    }
+
+    #clear-points {
+        position: absolute;
+        top: 3rem;
+        left: 0;
+        margin: 0.5rem;
+    }
+</style>
+
+</html>

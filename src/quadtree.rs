@@ -51,14 +51,6 @@ impl<T> QuadTreeNode<T>
 where
     T: Position + Copy,
 {
-    pub fn get_items(&self) -> Vec<T> {
-        self.items.to_vec()
-    }
-}
-impl<T> QuadTreeNode<T>
-where
-    T: Position + Copy,
-{
     pub fn new(rect_top_left: Vec2, rect_dims: Vec2) -> Self {
         Self {
             tl_idx: 0,
@@ -78,6 +70,11 @@ where
     }
     pub fn children(&self) -> Vec<usize> {
         vec![self.tl_idx, self.tr_idx, self.bl_idx, self.br_idx]
+    }
+
+    #[cfg(test)]
+    pub fn get_items(&self) -> Vec<T> {
+        self.items.to_vec()
     }
 }
 
@@ -106,9 +103,11 @@ where
     pub fn len(&self) -> usize {
         self.num_items
     }
+    #[cfg(test)]
     pub fn max_points(&self) -> usize {
         self.max_points
     }
+    #[cfg(test)]
     pub fn get_nodes(&self) -> Vec<QuadTreeNode<T>> {
         self.nodes.to_vec()
     }
@@ -143,6 +142,7 @@ where
 
         ret
     }
+    #[cfg(test)]
     pub fn query_circle_brute_force(&self, center: Vec2, radius: f64) -> Vec<T> {
         let mut ret = Vec::new();
         for node in &self.nodes {

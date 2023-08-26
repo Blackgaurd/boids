@@ -6,9 +6,9 @@ Boids simulation written in rust and javascript.
 
 Dependencies:
 
-- cargo
-- npm
-- python3
+-   cargo
+-   npm
+-   python3
 
 First, install wasm-pack:
 

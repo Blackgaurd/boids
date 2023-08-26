@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
@@ -13,9 +13,10 @@
         <button id="play">Play</button>
         <button id="show-debug">Show debug</button>
         <p id="tick-ms">Tick ms: 0</p>
+        <p id="render-ms">Render ms: 0</p>
 
         <!-- top right -->
-        <div class="params">
+        <div class="params" id="params">
             <label>
                 Protect range
                 <input
@@ -37,14 +38,54 @@
                 />
             </label>
             <label>
-                World margin
+                Avoid factor
+                <!-- divide by 100 -->
                 <input
                     type="range"
-                    id="world-margin"
+                    id="avoid-factor"
                     min="0"
                     max="100"
-                    val="25"
+                    val="5"
                 />
+            </label>
+            <label>
+                Align factor
+                <!-- divide by 100 -->
+                <input
+                    type="range"
+                    id="align-factor"
+                    min="0"
+                    max="100"
+                    val="5"
+                />
+            </label>
+            <label>
+                Cohesion factor
+                <!-- divide by 100,000 -->
+                <input
+                    type="range"
+                    id="cohesion-factor"
+                    min="0"
+                    max="100"
+                    val="50"
+                />
+            </label>
+            <label>
+                World margin
+                <input type="range" id="margin" min="0" max="150" val="25" />
+            </label>
+            <label>
+                Turn factor
+                <!-- divide by 10 -->
+                <input type="range" id="turn-factor" min="0" max="10" val="2" />
+            </label>
+            <!--
+            leaving out min and max speed
+            until I figure out a way to
+            make a double range slider input -->
+            <label>
+                Boids size
+                <input type="range" id="boids-size" min="5" max="30" val="12" />
             </label>
         </div>
     </body>
@@ -87,6 +128,18 @@
             border: 1px solid black;
         }
 
+        #render-ms {
+            position: absolute;
+            top: 11.5rem;
+            left: 0;
+            margin: 0.5rem;
+            padding: 0.5rem;
+            width: 5rem;
+            background-color: white;
+            border-radius: 0.2rem;
+            border: 1px solid black;
+        }
+
         .params {
             position: absolute;
             top: 0;
@@ -94,21 +147,22 @@
             margin: 0.5rem;
             padding: 0.5rem;
             width: max-content;
-            background-color: rgba(188, 255, 149, 0.8);
+            background-color: rgba(188, 255, 149, 0.9);
+            border-radius: 0.2rem;
         }
 
         .params > label {
             font-size: large;
             font-weight: bold;
             display: flex;
-            margin-right: 10rem;
+            margin-right: 10.5rem;
             margin-bottom: 0.2rem;
             margin-top: 0.2rem;
         }
 
         .params > label > input {
             position: absolute;
-            right: 0;
+            right: 0.5rem;
         }
     </style>
 </html>

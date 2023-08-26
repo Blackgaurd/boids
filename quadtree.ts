@@ -84,7 +84,7 @@ function drawCirclePoints(center: Vec2, radius: number, points: WasmVec2Array) {
 }
 
 init().then(() => {
-    // wasm initiated
+    // wasm initialized
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     let dims = Vec2.new(canvas.width, canvas.height);

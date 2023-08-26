@@ -1,47 +1,7 @@
+use js_sys::Int32Array;
+
+use crate::vec2::{Position, Vec2};
 use std::collections::VecDeque;
-use wasm_bindgen::prelude::wasm_bindgen;
-
-use crate::vec2::{Vec2, Vec2Array};
-
-#[derive(Debug)]
-#[wasm_bindgen]
-pub struct QuadTreeNode {
-    tl_idx: usize,
-    bl_idx: usize,
-    tr_idx: usize,
-    br_idx: usize,
-    pub rect_tl: Vec2,
-    pub rect_dims: Vec2,
-    points: Vec<Vec2>,
-}
-impl QuadTreeNode {
-    pub fn get_points(&self) -> &Vec<Vec2> {
-        &self.points
-    }
-}
-#[wasm_bindgen]
-impl QuadTreeNode {
-    pub fn new(rect_top_left: Vec2, rect_dims: Vec2) -> Self {
-        Self {
-            tl_idx: 0,
-            bl_idx: 0,
-            tr_idx: 0,
-            br_idx: 0,
-            rect_tl: rect_top_left,
-            rect_dims,
-            points: Vec::new(),
-        }
-    }
-    pub fn add_point(&mut self, point: Vec2) {
-        self.points.push(point);
-    }
-    pub fn num_points(&self) -> usize {
-        self.points.len()
-    }
-    pub fn children(&self) -> Vec<usize> {
-        vec![self.tl_idx, self.tr_idx, self.bl_idx, self.br_idx]
-    }
-}
 
 /**
    returns whether or not a
@@ -96,26 +56,92 @@ fn isect_rects(top_left1: Vec2, dims1: Vec2, top_left2: Vec2, dims2: Vec2) -> bo
             && top_left2.y + dims2.y <= top_left1.y + dims1.y)
 }
 
-#[wasm_bindgen]
-pub struct QuadTree {
+#[derive(Debug, Clone)]
+pub struct QuadTreeNode<T>
+where
+    T: Position + Copy,
+{
+    tl_idx: usize,
+    bl_idx: usize,
+    tr_idx: usize,
+    br_idx: usize,
+    pub rect_tl: Vec2,
+    pub rect_dims: Vec2,
+    items: Vec<T>,
+}
+impl<T> QuadTreeNode<T>
+where
+    T: Position + Copy,
+{
+    pub fn get_items(&self) -> Vec<T> {
+        self.items.to_vec()
+    }
+}
+impl<T> QuadTreeNode<T>
+where
+    T: Position + Copy,
+{
+    pub fn new(rect_top_left: Vec2, rect_dims: Vec2) -> Self {
+        Self {
+            tl_idx: 0,
+            bl_idx: 0,
+            tr_idx: 0,
+            br_idx: 0,
+            rect_tl: rect_top_left,
+            rect_dims,
+            items: Vec::new(),
+        }
+    }
+    pub fn push(&mut self, val: &T) {
+        self.items.push(*val);
+    }
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
+    pub fn children(&self) -> Vec<usize> {
+        vec![self.tl_idx, self.tr_idx, self.bl_idx, self.br_idx]
+    }
+}
+
+pub struct QuadTree<T>
+where
+    T: Position + Copy,
+{
     // root is at nodes[0]
     pub dims: Vec2,
-    nodes: Vec<QuadTreeNode>,
+    nodes: Vec<QuadTreeNode<T>>,
     max_points: usize,
-    pub num_points: u32,
+    num_items: usize,
 }
-impl QuadTree {
-    pub fn get_nodes(&self) -> &Vec<QuadTreeNode> {
-        &self.nodes
+impl<T> QuadTree<T>
+where
+    T: Position + Copy,
+{
+    pub fn new(dims: Vec2) -> Self {
+        Self {
+            dims,
+            nodes: vec![QuadTreeNode::new(Vec2::zero(), dims)],
+            max_points: 4,
+            num_items: 0,
+        }
     }
-    pub fn query_square(&self, top_left: Vec2, width: f64) -> Vec<Vec2> {
-        let mut ret: Vec<Vec2> = Vec::new();
+    pub fn len(&self) -> usize {
+        self.num_items
+    }
+    pub fn max_points(&self) -> usize {
+        self.max_points
+    }
+    pub fn get_nodes(&self) -> Vec<QuadTreeNode<T>> {
+        self.nodes.to_vec()
+    }
+    pub fn query_square(&self, top_left: Vec2, width: f64) -> Vec<T> {
+        let mut ret = Vec::new();
         let mut q: VecDeque<usize> = [0].into();
         while !q.is_empty() {
             let cur = q.pop_front().unwrap();
-            for &point in self.nodes[cur].points.iter() {
-                if in_square(point, top_left, width) {
-                    ret.push(point);
+            for item in self.nodes[cur].items.iter() {
+                if in_square(item.pos(), top_left, width) {
+                    ret.push(*item);
                 }
             }
 
@@ -137,70 +163,32 @@ impl QuadTree {
         }
         ret
     }
-    pub fn query_circle(&self, center: Vec2, radius: f64) -> Vec<Vec2> {
-        let square_points = self.query_square(center - Vec2::from(radius), radius * 2.0);
+    pub fn query_circle(&self, center: Vec2, radius: f64) -> Vec<T> {
+        let in_square = self.query_square(center - Vec2::from(radius), radius * 2.0);
         let mut ret = Vec::new();
-        for point in square_points.iter() {
-            if point.distance(&center) <= radius {
-                ret.push(*point);
+        for item in in_square.iter() {
+            if item.pos().distance(&center) <= radius {
+                ret.push(*item);
             }
         }
         ret
     }
-    pub fn query_circle_brute_force(&self, center: Vec2, radius: f64) -> Vec<Vec2> {
+    pub fn query_circle_brute_force(&self, center: Vec2, radius: f64) -> Vec<T> {
         let mut ret = Vec::new();
         for node in self.nodes.iter() {
-            for point in node.points.iter() {
-                if point.distance(&center) <= radius {
-                    ret.push(*point);
+            for item in node.items.iter() {
+                if item.pos().distance(&center) <= radius {
+                    ret.push(*item);
                 }
             }
         }
         ret
     }
-}
-#[wasm_bindgen]
-impl QuadTree {
-    pub fn new(dims: Vec2) -> Self {
-        Self {
-            dims,
-            nodes: vec![QuadTreeNode::new(Vec2::zero(), dims)],
-            max_points: 4,
-            num_points: 0,
-        }
-    }
-
-    // for quadtree demo page
-    pub fn node_top_left(&self, node_idx: usize) -> usize {
-        self.nodes[node_idx].tl_idx
-    }
-    pub fn node_top_right(&self, node_idx: usize) -> usize {
-        self.nodes[node_idx].tr_idx
-    }
-    pub fn node_bot_left(&self, node_idx: usize) -> usize {
-        self.nodes[node_idx].bl_idx
-    }
-    pub fn node_bot_right(&self, node_idx: usize) -> usize {
-        self.nodes[node_idx].br_idx
-    }
-    pub fn node_num_points(&self, node_idx: usize) -> usize {
-        self.nodes[node_idx].num_points()
-    }
-    pub fn get_node_point(&self, node_idx: usize, point_idx: usize) -> Vec2 {
-        self.nodes[node_idx].points[point_idx]
-    }
-    pub fn wasm_query_circle(&self, center: &Vec2, radius: f64) -> Vec2Array {
-        Vec2Array::new(self.query_circle(*center, radius))
-    }
-
-    pub fn max_points(&self) -> usize {
-        self.max_points
-    }
-    pub fn add_point(&mut self, point: &Vec2) -> bool {
-        if point.x < 0.0 || point.x > self.dims.x {
+    pub fn push(&mut self, item: &T) -> bool {
+        if item.x() < 0.0 || item.x() > self.dims.x {
             return false;
         }
-        if point.y < 0.0 || point.y > self.dims.y {
+        if item.y() < 0.0 || item.y() > self.dims.y {
             return false;
         }
 
@@ -209,9 +197,9 @@ impl QuadTree {
         let mut top_left = Vec2::zero();
         let mut bot_right = self.dims;
         loop {
-            if self.nodes[cur_idx].num_points() < self.max_points {
-                self.nodes[cur_idx].add_point(*point);
-                self.num_points += 1;
+            if self.nodes[cur_idx].len() < self.max_points {
+                self.nodes[cur_idx].push(item);
+                self.num_items += 1;
                 return true;
             }
 
@@ -220,14 +208,14 @@ impl QuadTree {
             let mid = (top_left + bot_right) / 2.0;
             let top: bool;
             let left: bool;
-            if point.x <= mid.x {
+            if item.x() <= mid.x {
                 left = true;
                 bot_right.x = mid.x;
             } else {
                 left = false;
                 top_left.x = mid.x;
             }
-            if point.y <= mid.y {
+            if item.y() <= mid.y {
                 top = true;
                 bot_right.y = mid.y;
             } else {
@@ -286,38 +274,52 @@ impl QuadTree {
     pub fn clear(&mut self) {
         self.nodes.clear();
         self.nodes.push(QuadTreeNode::new(Vec2::zero(), self.dims));
-        self.num_points = 0;
+        self.num_items = 0;
+    }
+
+    pub fn node_len(&self, node_idx: usize) -> usize {
+        self.nodes[node_idx].len()
+    }
+    pub fn node_item_pos(&self, node_idx: usize, item_idx: usize) -> Vec2 {
+        self.nodes[node_idx].items[item_idx].pos()
+    }
+    pub fn node_children(&self, node_idx: usize) -> Int32Array {
+        let ret = Int32Array::new_with_length(4);
+        for (i, child) in self.nodes[node_idx].children().iter().enumerate() {
+            ret.set_index(i as u32, *child as i32);
+        }
+        ret
     }
 }
 
 #[test]
 fn test_quadtree_new() {
     let mut tree = QuadTree::new(Vec2::from(123.0));
-    tree.add_point(&Vec2::new(12.0, 32.9));
+    tree.push(&Vec2::new(12.0, 32.9));
     for child in tree.nodes[0].children().iter() {
         assert_eq!(*child, 0);
     }
 }
 
 #[test]
-fn test_quadtree_add_point_in_bound() {
+fn test_quadtree_push_in_bound() {
     let mut tree = QuadTree::new(Vec2::new(10.0, 10.0));
     for i in 0..=10 {
         for j in 0..=10 {
-            assert!(tree.add_point(&Vec2::new(i as f64, j as f64)));
+            assert!(tree.push(&Vec2::new(i as f64, j as f64)));
         }
     }
 }
 
 #[test]
-fn test_quadtree_add_point_out_bound() {
+fn test_quadtree_push_out_bound() {
     let mut tree = QuadTree::new(Vec2::from(50.0));
-    assert!(!tree.add_point(&Vec2::from(-1.0)));
-    assert!(!tree.add_point(&Vec2::new(7.0, 50.3)));
-    assert!(!tree.add_point(&Vec2::new(9.0, -12.3)));
-    assert!(!tree.add_point(&Vec2::new(98.3, 9.3)));
-    assert!(!tree.add_point(&Vec2::new(-12.3, 34.2)));
-    assert!(!tree.add_point(&Vec2::new(99.9, 88.2)));
+    assert!(!tree.push(&Vec2::from(-1.0)));
+    assert!(!tree.push(&Vec2::new(7.0, 50.3)));
+    assert!(!tree.push(&Vec2::new(9.0, -12.3)));
+    assert!(!tree.push(&Vec2::new(98.3, 9.3)));
+    assert!(!tree.push(&Vec2::new(-12.3, 34.2)));
+    assert!(!tree.push(&Vec2::new(99.9, 88.2)));
 }
 
 #[test]
@@ -325,30 +327,30 @@ fn test_quadtree_child_nodes() {
     let mut tree = QuadTree::new(Vec2::from(10.0));
     // fill top layer
     for _ in 0..tree.max_points() {
-        tree.add_point(&Vec2::from(0.1));
+        tree.push(&Vec2::from(0.1));
     }
     // insert into top left
-    tree.add_point(&Vec2::new(3.9, 4.5));
+    tree.push(&Vec2::new(3.9, 4.5));
     // insert into bottom right
-    tree.add_point(&Vec2::new(9.4, 6.1));
+    tree.push(&Vec2::new(9.4, 6.1));
     // insert into bottom left
-    tree.add_point(&Vec2::new(0.9, 9.6));
+    tree.push(&Vec2::new(0.9, 9.6));
     // insert into top right
-    tree.add_point(&Vec2::new(7.7, 2.5));
+    tree.push(&Vec2::new(7.7, 2.5));
 
     let nodes = tree.get_nodes();
-    assert_eq!(nodes[1].get_points()[0], Vec2::new(3.9, 4.5));
-    assert_eq!(nodes[2].get_points()[0], Vec2::new(9.4, 6.1));
-    assert_eq!(nodes[3].get_points()[0], Vec2::new(0.9, 9.6));
-    assert_eq!(nodes[4].get_points()[0], Vec2::new(7.7, 2.5));
+    assert_eq!(nodes[1].get_items()[0], Vec2::new(3.9, 4.5));
+    assert_eq!(nodes[2].get_items()[0], Vec2::new(9.4, 6.1));
+    assert_eq!(nodes[3].get_items()[0], Vec2::new(0.9, 9.6));
+    assert_eq!(nodes[4].get_items()[0], Vec2::new(7.7, 2.5));
 
     // check number of points in each quadrant
     assert_eq!(nodes.len(), 5);
-    assert_eq!(nodes[0].get_points().len(), 4);
-    assert_eq!(nodes[1].get_points().len(), 1);
-    assert_eq!(nodes[2].get_points().len(), 1);
-    assert_eq!(nodes[3].get_points().len(), 1);
-    assert_eq!(nodes[4].get_points().len(), 1);
+    assert_eq!(nodes[0].get_items().len(), 4);
+    assert_eq!(nodes[1].get_items().len(), 1);
+    assert_eq!(nodes[2].get_items().len(), 1);
+    assert_eq!(nodes[3].get_items().len(), 1);
+    assert_eq!(nodes[4].get_items().len(), 1);
 
     // check the size of each quadrant
     // root
@@ -373,7 +375,7 @@ fn test_quadtree_query_square() {
     let mut tree = QuadTree::new(Vec2::from(10.0));
     for i in 0..10 {
         for j in 0..10 {
-            tree.add_point(&Vec2::new(i as f64, j as f64));
+            tree.push(&Vec2::new(i as f64, j as f64));
         }
     }
     assert_eq!(tree.query_square(Vec2::zero(), tree.dims.x).len(), 10 * 10);
@@ -389,7 +391,7 @@ fn test_quadtree_query_circle() {
     let mut tree = QuadTree::new(Vec2::from(10.0));
     for i in 0..=10 {
         for j in 0..=10 {
-            tree.add_point(&Vec2::new(i as f64, j as f64));
+            tree.push(&Vec2::new(i as f64, j as f64));
         }
     }
     assert_eq!(
@@ -409,14 +411,14 @@ fn test_quadtree_query_circle() {
     // weird edge case
     // numbers from randomly clicking points
     let mut tree = QuadTree::new(Vec2::new(1352.0, 342.0));
-    tree.add_point(&Vec2::new(154.0, 28.0));
-    tree.add_point(&Vec2::new(227.0, 28.0));
-    tree.add_point(&Vec2::new(188.0, 45.0));
-    tree.add_point(&Vec2::new(186.0, 114.0));
-    tree.add_point(&Vec2::new(838.0, 71.0));
-    tree.add_point(&Vec2::new(906.0, 71.0));
-    tree.add_point(&Vec2::new(917.0, 62.0));
-    tree.add_point(&Vec2::new(889.0, 96.0));
+    tree.push(&Vec2::new(154.0, 28.0));
+    tree.push(&Vec2::new(227.0, 28.0));
+    tree.push(&Vec2::new(188.0, 45.0));
+    tree.push(&Vec2::new(186.0, 114.0));
+    tree.push(&Vec2::new(838.0, 71.0));
+    tree.push(&Vec2::new(906.0, 71.0));
+    tree.push(&Vec2::new(917.0, 62.0));
+    tree.push(&Vec2::new(889.0, 96.0));
     assert!(!tree
         .query_square(Vec2::new(873.0, 77.0) - Vec2::from(145.0), 145.0 * 2.0)
         .is_empty());

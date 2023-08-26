@@ -1,8 +1,8 @@
-use std::{ops::*, fmt::Debug};
+use std::{fmt::Debug, ops::*};
 use wasm_bindgen::prelude::wasm_bindgen;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
 #[wasm_bindgen]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec2 {
     pub x: f64,
     pub y: f64,
@@ -76,8 +76,10 @@ impl Vec2 {
     pub fn mul_vec(&self, rhs: &Vec2) -> Self {
         *self * *rhs
     }
+    pub fn div_num(&self, rhs: f64) -> Self {
+        *self / rhs
+    }
 }
-
 impl Neg for Vec2 {
     type Output = Vec2;
     fn neg(self) -> Self::Output {
@@ -152,27 +154,18 @@ impl DivAssign<f64> for Vec2 {
     }
 }
 
-// wrapper around Vec<Vec2> to allow
-// javascript to access elements
-#[wasm_bindgen]
-pub struct Vec2Array {
-    arr: Vec<Vec2>,
-}
-impl Vec2Array {
-    pub fn new(arr: Vec<Vec2>) -> Self {
-        Self { arr }
+pub trait Position {
+    fn pos(&self) -> Vec2;
+    fn x(&self) -> f64 {
+        self.pos().x
+    }
+    fn y(&self) -> f64 {
+        self.pos().y
     }
 }
-#[wasm_bindgen]
-impl Vec2Array {
-    pub fn len(&self) -> usize {
-        self.arr.len()
-    }
-    pub fn get(&self, idx: usize) -> Vec2 {
-        if idx >= self.len() {
-            return Vec2::new(-1.0, -1.0);
-        }
-        self.arr[idx]
+impl Position for Vec2 {
+    fn pos(&self) -> Vec2 {
+        *self
     }
 }
 

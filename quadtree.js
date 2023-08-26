@@ -1,192 +1,116 @@
-import init, { Vec2, QuadTree } from "./pkg/boids.js";
-
-let canvas = document.getElementById("canvas");
-let ctx = canvas.getContext("2d");
-
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-let inputText = document.getElementById("input-text");
-let inputCache = 0;
-
-let totalPointsText = document.getElementById("total-points");
-
-let clearPointsButton = document.getElementById("clear-points");
-
-const POINT_RADIUS = 3;
-
-/**
- *
- * @param {QuadTree} tree
- * @param {number} nodeIdx
- * @param {Vec2} tlCorner
- * @param {Vec2} dims
- */
+import init, { Vec2, WasmQuadTree } from "./pkg/boids.js";
+var canvas = document.getElementById("canvas");
+var ctx = canvas.getContext("2d");
+var inputText = document.getElementById("input-text");
+var inputCache = 0;
+var totalPointsText = document.getElementById("total-points");
+var clearPointsButton = document.getElementById("clear-points");
+var POINT_RADIUS = 3;
+var DRAG_DIST = 20;
+function isDigit(key) {
+    return key.length == 1 && "0" <= key && key <= "9";
+}
 function drawTreeRecur(tree, nodeIdx, tlCorner, dims) {
-    // draw the node borders
     ctx.strokeStyle = "black";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.rect(tlCorner.x, tlCorner.y, dims.x, dims.y);
     ctx.stroke();
-
-    // draw the node points
     ctx.fillStyle = "red";
     ctx.strokeStyle = "red";
-    let num_points = tree.node_num_points(nodeIdx);
-    for (let i = 0; i < num_points; i++) {
-        let point = tree.get_node_point(nodeIdx, i);
+    for (var i = 0; i < tree.node_len(nodeIdx); i++) {
+        var pos = tree.node_item_pos(nodeIdx, i);
         ctx.beginPath();
-        ctx.arc(point.x, point.y, POINT_RADIUS, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, POINT_RADIUS, 0, Math.PI * 2);
         ctx.stroke();
         ctx.fill();
     }
-
-    let shift = dims.mul_num(0.5);
-    [
-        { nextIdx: tree.node_top_left(nodeIdx), shiftDims: Vec2.new(0, 0) },
-        { nextIdx: tree.node_top_right(nodeIdx), shiftDims: Vec2.new(1, 0) },
-        { nextIdx: tree.node_bot_left(nodeIdx), shiftDims: Vec2.new(0, 1) },
-        { nextIdx: tree.node_bot_right(nodeIdx), shiftDims: Vec2.new(1, 1) },
-    ].forEach((element) => {
-        if (element.nextIdx === 0) return;
-        drawTreeRecur(
-            tree,
-            element.nextIdx,
-            tlCorner.add_vec(shift.mul_vec(element.shiftDims)),
-            shift
-        );
+    var shift = dims.div_num(2);
+    var childIdx = tree.node_children(nodeIdx);
+    var shiftDims = [Vec2.zero(), Vec2.new(1, 0), Vec2.new(0, 1), Vec2.from(1)];
+    childIdx.forEach(function (idx, i) {
+        if (idx === 0)
+            return;
+        drawTreeRecur(tree, idx, tlCorner.add_vec(shift.mul_vec(shiftDims[i])), shift);
     });
 }
-
-/**
- *
- * @param {QuadTree} tree
- */
 function drawTree(tree) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawTreeRecur(tree, 0, Vec2.zero(), tree.dims);
+    drawTreeRecur(tree, 0, Vec2.zero(), tree.dims());
 }
-
-/**
- *
- * @param {Vec2} center
- * @param {number} radius
- * @param {Vec2[]} points
- */
 function drawCirclePoints(center, radius, points) {
     ctx.fillStyle = "green";
     ctx.strokeStyle = "green";
-    points.forEach((element) => {
+    for (var i = 0; i < points.len(); i++) {
+        var pos = points.get(i);
         ctx.beginPath();
-        ctx.arc(element.x, element.y, POINT_RADIUS, 0, Math.PI * 2);
+        ctx.arc(pos.x, pos.y, POINT_RADIUS, 0, Math.PI * 2);
         ctx.stroke();
         ctx.fill();
-    });
-
+    }
     ctx.fillStyle = "blue";
     ctx.strokeStyle = "blue";
     ctx.beginPath();
-    ctx.arc(center.x, center.y, 2, 0, Math.PI * 2);
+    ctx.arc(center.x, center.y, POINT_RADIUS, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fill();
     ctx.beginPath();
     ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
     ctx.stroke();
 }
-
-/**
- *
- * @param {QuadTree} tree
- * @param {Vec2} center
- * @param {number} radius
- * @returns {Vec2[]}
- */
-function queryCircle(tree, center, radius) {
-    let points = tree.wasm_query_circle(center, radius);
-    let ret = [];
-    for (let i = 0; i < points.len(); i++) {
-        ret.push(points.get(i));
-    }
-    return ret;
-}
-
-/**
- *
- * @param {string} str
- * @returns {boolean}
- */
-export function isDigit(str) {
-    if (str.length !== 1) return false;
-    let code = str.charCodeAt(0);
-    return 48 <= code && code <= 57;
-}
-
-init().then(() => {
-    let tree = QuadTree.new(Vec2.new(canvas.width, canvas.height));
-    const DRAG_DIST = 20;
-    let mouseDownPos = Vec2.zero();
-
-    /**
-     *
-     * @param {Vec2} pos
-     */
-    const windowClick = (pos) => {
-        tree.add_point(pos);
+init().then(function () {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    var dims = Vec2.new(canvas.width, canvas.height);
+    var tree = WasmQuadTree.new(dims);
+    var mouseDownPos = Vec2.zero();
+    function windowClick(pos) {
+        tree.push(pos);
         drawTree(tree);
-        totalPointsText.innerText = `Total points: ${tree.num_points}`;
-    };
-
-    /**
-     *
-     * @param {Vec2} startPos
-     * @param {Vec2} endPos
-     */
-    const windowDrag = (startPos, endPos) => {
-        let radius = startPos.distance(endPos);
-        let points = queryCircle(tree, startPos, radius);
+        totalPointsText.innerText = "Total points: ".concat(tree.len());
+    }
+    function windowDrag(startPos, endPos) {
+        var radius = startPos.distance(endPos);
+        var points = tree.query_circle(startPos, radius);
         drawTree(tree);
         drawCirclePoints(startPos, radius, points);
-    };
-
-    window.addEventListener("mousedown", (event) => {
+    }
+    window.addEventListener("mousedown", function (event) {
         mouseDownPos = Vec2.new(event.clientX, event.clientY);
     });
-    window.addEventListener("mouseup", (event) => {
-        let mouseUpPos = Vec2.new(event.clientX, event.clientY);
-        let dist = mouseDownPos.distance(mouseUpPos);
-        if (dist < DRAG_DIST) {
-            // register click
+    window.addEventListener("mouseup", function (event) {
+        var mouseUpPos = Vec2.new(event.clientX, event.clientY);
+        if (mouseDownPos.distance(mouseUpPos) < DRAG_DIST) {
             windowClick(mouseUpPos);
-        } else {
-            // register drag
+        }
+        else {
             windowDrag(mouseDownPos, mouseUpPos);
         }
     });
-    window.addEventListener("keydown", (event) => {
+    window.addEventListener("keydown", function (event) {
         if (isDigit(event.key)) {
             inputCache = inputCache * 10 + parseInt(event.key);
-            inputText.innerText = `Add points: ${inputCache}`;
-        } else if (event.key == "Backspace") {
+            inputText.innerText = "Add points: ".concat(inputCache);
+        }
+        else if (event.key == "Backspace") {
             inputCache = Math.max(0, Math.floor(inputCache / 10));
-            inputText.innerText = `Add points: ${inputCache}`;
-        } else if (event.key == "Enter") {
-            for (let i = 0; i < inputCache; i++) {
-                tree.add_point(
-                    Vec2.new(Math.random(), Math.random()).mul_vec(tree.dims)
-                );
+            inputText.innerText = "Add points: ".concat(inputCache);
+        }
+        else if (event.key == "Enter") {
+            for (var i = 0; i < inputCache; i++) {
+                tree.push(Vec2.new(Math.random(), Math.random()).mul_vec(tree.dims()));
             }
             drawTree(tree);
             inputCache = 0;
-            inputText.innerText = `Add points: ${inputCache}`;
-            totalPointsText.innerText = `Total points: ${tree.num_points}`;
+            inputText.innerText = "Add points: ".concat(inputCache);
+            totalPointsText.innerText = "Total points: ".concat(tree.len());
         }
     });
-    clearPointsButton.onclick = () => {
+    clearPointsButton.onclick = function () {
         tree.clear();
-        totalPointsText.innerText = `Total points: ${tree.num_points}`;
+        totalPointsText.innerText = "Total points: ".concat(tree.len());
         inputCache = 0;
-        inputText.innerText = `Add points: ${inputCache}`;
-        drawTree();
+        inputText.innerText = "Add points: ".concat(inputCache);
+        drawTree(tree);
     };
 });

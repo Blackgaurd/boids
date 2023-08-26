@@ -100,40 +100,40 @@ init().then(() => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     let dims = Vec2.new(canvas.width, canvas.height);
-    let num_boids = 5000;
+    let numBoids = 5000;
 
     // world settings
-    let protect_range = 8;
-    let visible_range = 32;
-    let avoid_factor = 0.05;
-    let align_factor = 0.05;
-    let cohesion_factor = 0.0005;
+    let protectedRange = 8;
+    let visibleRange = 32;
+    let avoidFactor = 0.05;
+    let alignFactor = 0.05;
+    let cohesionFactor = 0.0005;
     let margin = 40;
-    let turn_factor = 0.2;
-    let max_speed = 6;
-    let min_speed = 2;
+    let turnFactor = 0.2;
+    let maxSpeed = 6;
+    let minSpeed = 2;
 
     let world = World.new(
         dims,
-        visible_range,
-        protect_range,
-        avoid_factor,
-        align_factor,
-        cohesion_factor,
+        visibleRange,
+        protectedRange,
+        avoidFactor,
+        alignFactor,
+        cohesionFactor,
         margin,
-        turn_factor,
-        max_speed,
-        min_speed
+        turnFactor,
+        maxSpeed,
+        minSpeed
     );
 
-    for (let i = 0; i < num_boids; i++) {
+    for (let i = 0; i < numBoids; i++) {
         world.add_boid(
             Vec2.rand_01().mul_vec(dims),
             Vec2.rand_01()
                 .mul_num(2)
                 .sub_num(1)
                 .normalize()
-                .mul_num(randRange(min_speed, max_speed))
+                .mul_num(randRange(minSpeed, maxSpeed))
         );
     }
     drawBoids(world);

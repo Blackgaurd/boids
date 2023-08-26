@@ -170,23 +170,26 @@ impl World {
         (pos_avg - cur_pos) * self.cohesion_factor
     }
     fn handle_margins(&self, cur_pos: Vec2) -> Vec2 {
-        let mut ret = Vec2::zero();
-
-        if cur_pos.x < self.margin {
-            // outside left border
-            ret.x = self.turn_factor;
-        } else if cur_pos.x > self.dims.x - self.margin {
-            // outside right border
-            ret.x = -self.turn_factor
-        }
-        if cur_pos.y < self.margin {
-            // outside top margin
-            ret.y = self.turn_factor;
-        } else if cur_pos.y > self.dims.y - self.margin {
-            // outside bottom margin
-            ret.y = -self.turn_factor
-        }
-        ret
+        Vec2::new(
+            if cur_pos.x < self.margin {
+                // outside left border
+                self.turn_factor
+            } else if cur_pos.x > self.dims.x - self.margin {
+                // outside right border
+                -self.turn_factor
+            } else {
+                0.0
+            },
+            if cur_pos.y < self.margin {
+                // outside top margin
+                self.turn_factor
+            } else if cur_pos.y > self.dims.y - self.margin {
+                // outside bottom margin
+                -self.turn_factor
+            } else {
+                0.0
+            },
+        )
     }
     pub fn tick_brute_force(&mut self) {
         for i in 0..self.boids.len() {

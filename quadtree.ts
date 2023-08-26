@@ -133,11 +133,11 @@ init().then(() => {
             totalPointsText.innerText = `Total points: ${tree.len()}`;
         }
     });
-    clearPointsButton.onclick = () => {
+    clearPointsButton.addEventListener("click", () => {
         tree.clear();
         totalPointsText.innerText = `Total points: ${tree.len()}`;
         inputCache = 0;
         inputText.innerText = `Add points: ${inputCache}`;
         drawTree(tree);
-    };
+    });
 });

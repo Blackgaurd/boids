@@ -3,7 +3,6 @@
 use std::{fmt::Debug, ops::*};
 use wasm_bindgen::prelude::wasm_bindgen;
 
-// TODO: overwrite the == operator to use epsilon
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec2 {

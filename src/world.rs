@@ -104,7 +104,7 @@ impl World {
     fn separation(&self, cur_pos: Vec2, protected_boids: &Vec<Boid>) -> Vec2 {
         // visible boids includes the current boid
         let mut close = Vec2::zero();
-        for boid in protected_boids.iter() {
+        for boid in protected_boids {
             close += cur_pos - boid.pos;
         }
         close * self.avoid_factor
@@ -133,7 +133,7 @@ impl World {
             return Vec2::zero();
         }
         let mut vel_avg = -cur_vel;
-        for boid in visible_boids.iter() {
+        for boid in visible_boids {
             vel_avg += boid.vel;
         }
         vel_avg /= visible_boids.len() as f64 - 1.0; // -1.0 to exclude current boid
@@ -163,7 +163,7 @@ impl World {
             return Vec2::zero();
         }
         let mut pos_avg = -cur_pos;
-        for boid in visible_boids.iter() {
+        for boid in visible_boids {
             pos_avg += boid.pos;
         }
         pos_avg /= visible_boids.len() as f64 - 1.0; // -1.0 to exclude current boid
@@ -231,7 +231,7 @@ impl World {
 
         // rebuild the quadtree
         self.quadtree.clear();
-        for boid in self.boids.iter() {
+        for boid in &self.boids {
             self.quadtree.push(boid);
         }
     }

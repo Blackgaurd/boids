@@ -127,7 +127,7 @@ where
             // if circle intersects the bounding rectangle
             // of any of the four child nodes, repeat loop
             for child_idx in &self.nodes[cur].children() {
-                if *child_idx == 0 {
+                if *child_idx == 0 || self.nodes[*child_idx].len() == 0 {
                     continue;
                 }
                 if isect_circle_rect(
@@ -145,8 +145,8 @@ where
     }
     pub fn query_circle_brute_force(&self, center: Vec2, radius: f64) -> Vec<T> {
         let mut ret = Vec::new();
-        for node in self.nodes.iter() {
-            for item in node.items.iter() {
+        for node in &self.nodes {
+            for item in &node.items {
                 if item.pos().distance(&center) <= radius {
                     ret.push(*item);
                 }
@@ -266,7 +266,7 @@ where
 fn test_quadtree_new() {
     let mut tree = QuadTree::new(Vec2::from(123.0));
     tree.push(&Vec2::new(12.0, 32.9));
-    for child in tree.nodes[0].children().iter() {
+    for child in &tree.nodes[0].children() {
         assert_eq!(*child, 0);
     }
 }

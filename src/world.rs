@@ -1,11 +1,3 @@
-/*
-* world will have two data structures to hold the boids
-* - an array to store and iterate over the boids
-* - a quadtree to store and query the boids
-*/
-
-use std::time::Instant;
-
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{

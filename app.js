@@ -1,182 +1,106 @@
-import init, { Vec2, World } from "./pkg/boids.js";
-
-let debugButton = document.getElementById("show-debug");
-let debugToggle = false;
-debugButton.innerText = "Show debug";
-debugButton.addEventListener("click", () => {
-    if (!debugToggle) {
-        debugButton.innerText = "Hide debug";
-        debugToggle = true;
-    } else {
-        debugButton.innerText = "Show debug";
-        debugToggle = false;
-    }
+import init, { RollingAverage, Vec2, World } from "./pkg/boids.js";
+var canvas = document.getElementById("canvas");
+var ctx = canvas.getContext("2d");
+var playButton = document.getElementById("play");
+var debugButton = document.getElementById("show-debug");
+var debug = false;
+debugButton.addEventListener("click", function () {
+    debug = !debug;
+    debugButton.innerText = debug ? "Hide Debug" : "Show Debug";
 });
-
-function rotateVec2(vec, radians) {
-    const COS = Math.cos(radians),
-        SIN = Math.sin(radians);
-    return Vec2.new(vec.x * COS - vec.y * SIN, vec.x * SIN + vec.y * COS);
+var tickMsText = document.getElementById("tick-ms");
+var BOIDS_SIZE = 12;
+var INTERVAL_MS = 10;
+var AVG_WINDOW = 100;
+var Duration = (function () {
+    function Duration() {
+        this.start = performance.now();
+    }
+    Duration.prototype.elapsed_ms = function () {
+        return performance.now() - this.start;
+    };
+    return Duration;
+}());
+function randRange(min, max) {
+    return Math.random() * (max - min) + min;
 }
-
-function drawBoids(ctx, world) {
+function drawBoids(world) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "blue";
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    const BOID_SIZE = 12;
-    for (let i = 0; i < world.num_boids(); i++) {
-        let boid = world.get_boid(i);
-        let vel = boid.vel.normalize();
-        let bot_left = rotateVec2(vel, (Math.PI * 11) / 12)
-            .mul_num(BOID_SIZE)
-            .add_vec(boid.pos);
-        let bot_right = rotateVec2(vel, (Math.PI * 13) / 12)
-            .mul_num(BOID_SIZE)
-            .add_vec(boid.pos);
-
+    for (var i = 0; i < world.num_boids(); i++) {
+        var boid = world.get_boid(i);
+        var vel = boid.vel.normalize().mul_num(BOIDS_SIZE);
+        var bot_left = vel.rotate((Math.PI * 11) / 12).add_vec(boid.pos);
+        var bot_right = vel.rotate((Math.PI * 13) / 12).add_vec(boid.pos);
         ctx.beginPath();
         ctx.moveTo(boid.pos.x, boid.pos.y);
         ctx.lineTo(bot_left.x, bot_left.y);
         ctx.lineTo(bot_right.x, bot_right.y);
         ctx.fill();
     }
-
-    if (debugToggle) {
-        // draw protect range
+    if (debug) {
         ctx.strokeStyle = "red";
         ctx.lineWidth = 1;
-        ctx.setLineDash([]);
-        for (let i = 0; i < world.num_boids(); i++) {
-            let boid = world.get_boid(i);
+        for (var i = 0; i < world.num_boids(); i++) {
+            var boid = world.get_boid(i);
             ctx.beginPath();
-            ctx.arc(
-                boid.pos.x,
-                boid.pos.y,
-                world.protect_range,
-                0,
-                Math.PI * 2
-            );
+            ctx.arc(boid.pos.x, boid.pos.y, world.protect_range, 0, Math.PI * 2);
             ctx.stroke();
         }
-
-        // draw visible range
         ctx.strokeStyle = "green";
-        ctx.lineWidth = 1;
-        ctx.setLineDash([]);
-        for (let i = 0; i < world.num_boids(); i++) {
-            let boid = world.get_boid(i);
+        for (var i = 0; i < world.num_boids(); i++) {
+            var boid = world.get_boid(i);
             ctx.beginPath();
-            ctx.arc(
-                boid.pos.x,
-                boid.pos.y,
-                world.visible_range,
-                0,
-                Math.PI * 2
-            );
+            ctx.arc(boid.pos.x, boid.pos.y, world.visible_range, 0, Math.PI * 2);
             ctx.stroke();
         }
-
-        // draw margin
         ctx.strokeStyle = "black";
-        ctx.lineWidth = 1;
         ctx.setLineDash([5, 5]);
-        let top_left = Vec2.new(world.margin, world.margin);
-        let top_right = Vec2.new(ctx.canvas.width - world.margin, world.margin);
-        let bot_left = Vec2.new(world.margin, ctx.canvas.height - world.margin);
-        let bot_right = Vec2.new(
-            ctx.canvas.width - world.margin,
-            ctx.canvas.height - world.margin
-        );
         ctx.beginPath();
-        ctx.moveTo(top_left.x, top_left.y);
-        ctx.lineTo(top_right.x, top_right.y);
-        ctx.lineTo(bot_right.x, bot_right.y);
-        ctx.lineTo(bot_left.x, bot_left.y);
-        ctx.lineTo(top_left.x, top_left.y);
+        ctx.rect(world.margin, world.margin, canvas.width - world.margin * 2, canvas.height - world.margin * 2);
         ctx.stroke();
     }
 }
-
-init().then(() => {
-    let canvas = document.getElementById("canvas");
-    let ctx = canvas.getContext("2d");
+init().then(function () {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
-    let params = {
-        protect_range: 8,
-        avoid_factor: 0.05,
-        visible_range: 40,
-        align_factor: 0.05,
-        cohesion_factor: 0.0005,
-        margin: 40,
-        turn_factor: 0.2,
-        max_speed: 6,
-        min_speed: 2,
-    };
-    let world = World.new(
-        Vec2.new(canvas.width, canvas.height),
-        params.protect_range,
-        params.avoid_factor,
-        params.visible_range,
-        params.align_factor,
-        params.cohesion_factor,
-        params.margin,
-        params.turn_factor,
-        params.max_speed,
-        params.min_speed
-    );
-
-    for (let i = 0; i < 100; i++) {
-        world.add_boid(
-            Vec2.new(
-                Math.random() * canvas.width,
-                Math.random() * canvas.height
-            ),
-            Vec2.new(Math.random() * 2 - 1, Math.random() * 2 - 1)
-                .normalize()
-                .mul_num(3)
-        );
+    var dims = Vec2.new(canvas.width, canvas.height);
+    var num_boids = 5000;
+    var protect_range = 8;
+    var visible_range = 32;
+    var avoid_factor = 0.05;
+    var align_factor = 0.05;
+    var cohesion_factor = 0.0005;
+    var margin = 40;
+    var turn_factor = 0.2;
+    var max_speed = 6;
+    var min_speed = 2;
+    var world = World.new(dims, visible_range, protect_range, avoid_factor, align_factor, cohesion_factor, margin, turn_factor, max_speed, min_speed);
+    for (var i = 0; i < num_boids; i++) {
+        world.add_boid(Vec2.rand_01().mul_vec(dims), Vec2.rand_01()
+            .mul_num(2)
+            .sub_num(1)
+            .normalize()
+            .mul_num(randRange(min_speed, max_speed)));
     }
-
-    // draw once to spawn boids
-    drawBoids(ctx, world);
-    let interval = null;
-
-    let playButton = document.getElementById("play");
-    playButton.innerText = interval ? "Pause" : "Play";
-    const playPause = () => {
+    drawBoids(world);
+    var interval = undefined;
+    var avgFps = RollingAverage.new(AVG_WINDOW);
+    playButton.addEventListener("click", function () {
         if (interval) {
             clearInterval(interval);
-            interval = null;
+            interval = undefined;
             playButton.innerText = "Play";
-        } else {
-            interval = setInterval(() => {
+        }
+        else {
+            interval = setInterval(function () {
+                var start = new Duration();
                 world.tick();
-                drawBoids(ctx, world);
-            }, 30);
+                avgFps.push(start.elapsed_ms());
+                tickMsText.innerText = "Tick ms: ".concat(avgFps.query().toFixed(1));
+                drawBoids(world);
+            }, INTERVAL_MS);
             playButton.innerText = "Pause";
         }
-    };
-    playButton.addEventListener("click", playPause);
-
-    let protectSlider = document.getElementById("protect-range");
-    protectSlider.value = params.protect_range;
-    protectSlider.addEventListener("change", () => {
-        params.protect_range = protectSlider.value;
-        world.protect_range = params.protect_range;
-    });
-
-    let visibleSlider = document.getElementById("visible-range");
-    visibleSlider.value = params.visible_range;
-    visibleSlider.addEventListener("change", () => {
-        params.visible_range = visibleSlider.value;
-        world.visible_range = params.visible_range;
-    });
-
-    let marginSlider = document.getElementById("world-margin");
-    marginSlider.value = params.margin;
-    marginSlider.addEventListener("change", () => {
-        params.margin = marginSlider.value;
-        world.margin = params.margin;
     });
 });

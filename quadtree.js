@@ -106,11 +106,11 @@ init().then(function () {
             totalPointsText.innerText = "Total points: ".concat(tree.len());
         }
     });
-    clearPointsButton.onclick = function () {
+    clearPointsButton.addEventListener("click", function () {
         tree.clear();
         totalPointsText.innerText = "Total points: ".concat(tree.len());
         inputCache = 0;
         inputText.innerText = "Add points: ".concat(inputCache);
         drawTree(tree);
-    };
+    });
 });

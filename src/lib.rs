@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use js_sys::Int32Array;
 use quadtree::QuadTree;
 use vec2::Vec2;
@@ -70,4 +72,49 @@ impl WasmQuadTree {
     pub fn node_children(&self, node_idx: usize) -> Int32Array {
         self.tree.node_children(node_idx)
     }
+}
+
+#[wasm_bindgen]
+pub struct RollingAverage {
+    q: VecDeque<f64>,
+    sum: f64,
+    max_len: usize,
+}
+#[wasm_bindgen]
+impl RollingAverage {
+    pub fn new(max_len: usize) -> Self {
+        Self {
+            q: VecDeque::with_capacity(max_len),
+            sum: 0.0,
+            max_len,
+        }
+    }
+    pub fn push(&mut self, val: f64) {
+        if self.q.len() == self.max_len {
+            self.sum -= self.q.pop_front().unwrap();
+        }
+        self.q.push_back(val);
+        self.sum += val;
+    }
+    pub fn query(&self) -> f64 {
+        if self.q.is_empty() {
+            0.0
+        } else {
+            self.sum / self.q.len() as f64
+        }
+    }
+}
+
+#[test]
+fn test_rolling_avg() {
+    let mut avg = RollingAverage::new(3);
+    assert_eq!(avg.query(), 0.0);
+    avg.push(1.0);
+    assert_eq!(avg.query(), 1.0);
+    avg.push(2.0);
+    assert_eq!(avg.query(), 1.5);
+    avg.push(3.0);
+    assert_eq!(avg.query(), 2.0);
+    avg.push(4.0);
+    assert_eq!(avg.query(), 3.0);
 }

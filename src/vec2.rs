@@ -1,6 +1,9 @@
+// TODO: change all length/distance comparisons to squared length/distance
+
 use std::{fmt::Debug, ops::*};
 use wasm_bindgen::prelude::wasm_bindgen;
 
+// TODO: overwrite the == operator to use epsilon
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec2 {
@@ -17,6 +20,9 @@ impl Vec2 {
     }
     pub fn from(val: f64) -> Self {
         Self::new(val, val)
+    }
+    pub fn rand_01() -> Self {
+        Self::new(js_sys::Math::random(), js_sys::Math::random())
     }
     pub fn to_str(&self) -> String {
         format!("Vec2({:.2}, {:.2})", self.x, self.y)
@@ -54,6 +60,21 @@ impl Vec2 {
             y: self.y / len,
         }
     }
+    pub fn rotate(&self, radians: f64) -> Self {
+        let cos = radians.cos();
+        let sin = radians.sin();
+        Self::new(self.x * cos - self.y * sin, self.x * sin + self.y * cos)
+    }
+    pub fn clamp_length(&self, min: f64, max: f64) -> Self {
+        let len = self.length();
+        if len < min {
+            self.normalize() * min
+        } else if len > max {
+            self.normalize() * max
+        } else {
+            *self
+        }
+    }
 
     // operator functions for js
     // all vec2 have to be borrowed so the
@@ -66,6 +87,9 @@ impl Vec2 {
     }
     pub fn add_vec(&self, rhs: &Vec2) -> Self {
         *self + *rhs
+    }
+    pub fn sub_num(&self, rhs: f64) -> Self {
+        *self - rhs
     }
     pub fn sub_vec(&self, rhs: &Vec2) -> Self {
         *self - *rhs

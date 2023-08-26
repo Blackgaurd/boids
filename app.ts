@@ -35,9 +35,8 @@ let marginSlider = document.getElementById("margin") as HTMLInputElement;
 let turnFactorSlider = document.getElementById(
     "turn-factor"
 ) as HTMLInputElement;
-let boidsSizeSlider = document.getElementById("boids-size") as HTMLInputElement;
 
-let boidsSize = 5;
+const BOIDS_SIZE = 5;
 const INTERVAL_MS = 5;
 const AVG_WINDOW = 100;
 
@@ -60,7 +59,7 @@ function drawBoids(world: World) {
     ctx.fillStyle = "blue";
     for (let i = 0; i < world.num_boids(); i++) {
         let boid = world.get_boid(i);
-        let vel = boid.vel.normalize().mul_num(boidsSize);
+        let vel = boid.vel.normalize().mul_num(BOIDS_SIZE);
         let bot_left = vel.rotate((Math.PI * 11) / 12).add_vec(boid.pos);
         let bot_right = vel.rotate((Math.PI * 13) / 12).add_vec(boid.pos);
 
@@ -122,7 +121,7 @@ init().then(() => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     let dims = Vec2.new(canvas.width, canvas.height);
-    let numBoids = 15000;
+    let numBoids = 5000;
 
     // world settings
     let protectedRange = 8;
@@ -195,10 +194,6 @@ init().then(() => {
     turnFactorSlider.addEventListener("input", () => {
         turnFactor = parseFloat(turnFactorSlider.value) / 10;
         world.turn_factor = turnFactor;
-    });
-    boidsSizeSlider.value = boidsSize.toString();
-    boidsSizeSlider.addEventListener("input", () => {
-        boidsSize = parseInt(boidsSizeSlider.value);
     });
 
     let interval: number = undefined;

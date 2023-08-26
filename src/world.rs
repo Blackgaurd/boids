@@ -55,7 +55,7 @@ impl World {
         World {
             dims: *dims,
             boids: Vec::new(),
-            quadtree: QuadTree::new(*dims),
+            quadtree: QuadTree::new(Vec2::zero(), *dims),
             protect_range,
             avoid_factor,
             visible_range,
@@ -70,6 +70,7 @@ impl World {
     pub fn add_boid(&mut self, pos: &Vec2, vel: &Vec2) {
         self.boids.push(Boid::new(*pos, *vel));
         self.quadtree.push(&Boid::new(*pos, *vel));
+        debug_assert_eq!(self.boids.len(), self.quadtree.len());
     }
     pub fn num_boids(&self) -> usize {
         debug_assert_eq!(self.boids.len(), self.quadtree.len());
@@ -203,6 +204,9 @@ impl World {
         }
     }
     pub fn tick(&mut self) {
+        let mut tl = Vec2::from(f64::INFINITY);
+        let mut br = Vec2::from(f64::NEG_INFINITY);
+
         // update the boids
         for i in 0..self.boids.len() {
             let boid = &self.boids[i];
@@ -222,12 +226,21 @@ impl World {
             // update boid
             self.boids[i].pos += vel;
             self.boids[i].vel = vel;
+
+            // update corners of quadtree
+            tl.x = f64::min(tl.x, self.boids[i].pos.x);
+            tl.y = f64::min(tl.y, self.boids[i].pos.y);
+            br.x = f64::max(br.x, self.boids[i].pos.x);
+            br.y = f64::max(br.y, self.boids[i].pos.y);
         }
 
         // rebuild the quadtree
-        self.quadtree.clear();
+        // add 0.5 offset boundaries to ensure
+        // that the boids are inside the quadtree
+        self.quadtree.reset(tl - 0.5, br - tl + 1.0);
         for boid in &self.boids {
-            self.quadtree.push(boid);
+            let success = self.quadtree.push(boid);
+            debug_assert!(success);
         }
     }
 }
@@ -317,4 +330,31 @@ fn test_world_cohesion() {
         let expected = world.cohesion_brute_force(idx);
         assert_eq!(cohesion, expected);
     }
+}
+
+#[test]
+fn test_world_tick() {
+    // world tick stress test
+    let mut world = World::new(
+        &Vec2::new(100.0, 100.0),
+        15.0,
+        5.0,
+        0.05,
+        0.05,
+        0.0005,
+        40.0,
+        0.2,
+        6.0,
+        2.0,
+    );
+    for i in (0..100).step_by(10) {
+        for j in (0..100).step_by(10) {
+            world.add_boid(&Vec2::new(i as f64, j as f64), &Vec2::zero());
+        }
+    }
+    let ticks = 2000;
+    for _ in 0..ticks {
+        world.tick();
+    }
+    assert_eq!(world.num_boids(), 100);
 }

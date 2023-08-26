@@ -45,14 +45,14 @@ pub struct WasmQuadTree {
 impl WasmQuadTree {
     pub fn new(dims: &Vec2) -> Self {
         Self {
-            tree: QuadTree::new(*dims),
+            tree: QuadTree::new(Vec2::zero(), *dims),
         }
     }
     pub fn len(&self) -> usize {
         self.tree.len()
     }
     pub fn dims(&self) -> Vec2 {
-        self.tree.dims
+        self.tree.border_dims
     }
     pub fn push(&mut self, point: &Vec2) {
         self.tree.push(point);
@@ -61,7 +61,7 @@ impl WasmQuadTree {
         WasmVec2Array::new(self.tree.query_circle(*center, radius))
     }
     pub fn clear(&mut self) {
-        self.tree.clear();
+        self.tree.reset(Vec2::zero(), self.tree.border_dims);
     }
     pub fn node_len(&self, node_idx: usize) -> usize {
         self.tree.node_len(node_idx)

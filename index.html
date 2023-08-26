@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
@@ -12,8 +12,12 @@
         <!-- top left -->
         <button id="play">Play</button>
         <button id="show-debug">Show debug</button>
-        <p id="tick-ms">Tick ms: 0</p>
-        <p id="render-ms">Render ms: 0</p>
+        <p id="tick-ms" title="average milliseconds to calculate next frame">
+            Tick ms:<br>0
+        </p>
+        <p id="render-ms" title="average milliseconds to render frame">
+            Render ms:<br>0
+        </p>
 
         <!-- top right -->
         <div class="params" id="params">
@@ -83,10 +87,6 @@
             leaving out min and max speed
             until I figure out a way to
             make a double range slider input -->
-            <label>
-                Boids size
-                <input type="range" id="boids-size" min="5" max="30" val="12" />
-            </label>
         </div>
     </body>
     <script type="module" src="app.js"></script>

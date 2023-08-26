@@ -4,56 +4,34 @@ use crate::vec2::{Position, Vec2};
 use std::collections::VecDeque;
 
 /**
-   returns whether or not a
-   point is inside a square
-*/
-fn in_square(point: Vec2, top_left: Vec2, width: f64) -> bool {
-    top_left.x <= point.x
-        && point.x <= top_left.x + width
-        && top_left.y <= point.y
-        && point.y <= top_left.y + width
-}
-#[test]
-fn test_in_square() {
-    assert!(in_square(Vec2::new(1.0, 2.0), Vec2::zero(), 5.0));
-    assert!(in_square(Vec2::zero(), Vec2::zero(), 1.0));
-    assert!(in_square(Vec2::new(5.0, 6.0), Vec2::new(5.0, 3.0), 8.3));
-    assert!(!in_square(Vec2::new(10.0, 4.0), Vec2::new(101.0, 4.0), 7.0));
-}
+checks for intersection between a circle
+and an axis-aligned rectangle
+ */
+fn isect_circle_rect(center: Vec2, radius: f64, top_left: Vec2, dims: Vec2) -> bool {
+    // https://www.jeffreythompson.org/collision-detection/circle-rect.php
+    let test_x = if center.x < top_left.x {
+        top_left.x
+    } else if center.x > top_left.x + dims.x {
+        top_left.x + dims.x
+    } else {
+        center.x
+    };
+    let test_y = if center.y < top_left.y {
+        top_left.y
+    } else if center.y > top_left.y + dims.y {
+        top_left.y + dims.y
+    } else {
+        center.y
+    };
 
-/**
-  returns whether or not a
-  point is inside a rectangle
-*/
-fn in_rect(point: Vec2, top_left: Vec2, dims: Vec2) -> bool {
-    top_left.x <= point.x
-        && point.x <= top_left.x + dims.x
-        && top_left.y <= point.y
-        && point.y <= top_left.y + dims.y
-}
+    let dist = center - Vec2::new(test_x, test_y);
+    let dist_sq = dist.length_squared();
 
-/**
-   returns whether or not
-   two rectangles intersect
-*/
-fn isect_rects(top_left1: Vec2, dims1: Vec2, top_left2: Vec2, dims2: Vec2) -> bool {
-    // TODO: find a more efficient method
-    in_rect(top_left1, top_left2, dims2)
-        || in_rect(top_left1 + dims1.keep_x(), top_left2, dims2)
-        || in_rect(top_left1 + dims1.keep_y(), top_left2, dims2)
-        || in_rect(top_left1 + dims1, top_left2, dims2)
-        || in_rect(top_left2, top_left1, dims1)
-        || in_rect(top_left2 + dims2.keep_x(), top_left1, dims1)
-        || in_rect(top_left2 + dims2.keep_y(), top_left1, dims1)
-        || in_rect(top_left2 + dims2, top_left1, dims1)
-        || (top_left1.x <= top_left2.x
-            && top_left2.x + dims2.x <= top_left1.x + dims1.x
-            && top_left2.y <= top_left1.y
-            && top_left1.y + dims1.y <= top_left2.y + dims2.y)
-        || (top_left2.x <= top_left1.x
-            && top_left1.x + dims1.x <= top_left2.x + dims2.x
-            && top_left1.y <= top_left2.y
-            && top_left2.y + dims2.y <= top_left1.y + dims1.y)
+    if dist_sq < radius * radius {
+        true
+    } else {
+        false
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -134,43 +112,35 @@ where
     pub fn get_nodes(&self) -> Vec<QuadTreeNode<T>> {
         self.nodes.to_vec()
     }
-    pub fn query_square(&self, top_left: Vec2, width: f64) -> Vec<T> {
+    pub fn query_circle(&self, center: Vec2, radius: f64) -> Vec<T> {
         let mut ret = Vec::new();
         let mut q: VecDeque<usize> = [0].into();
+        let radius_sq = radius * radius;
         while !q.is_empty() {
             let cur = q.pop_front().unwrap();
-            for item in self.nodes[cur].items.iter() {
-                if in_square(item.pos(), top_left, width) {
+            for item in &self.nodes[cur].items {
+                if item.pos().distance_squared(&center) <= radius_sq {
                     ret.push(*item);
                 }
             }
 
-            // if square intersects any of the four
-            // child nodes, repeat loop with that child
-            for child_idx in self.nodes[cur].children().iter() {
+            // if circle intersects the bounding rectangle
+            // of any of the four child nodes, repeat loop
+            for child_idx in &self.nodes[cur].children() {
                 if *child_idx == 0 {
                     continue;
                 }
-                if isect_rects(
+                if isect_circle_rect(
+                    center,
+                    radius,
                     self.nodes[*child_idx].rect_tl,
                     self.nodes[*child_idx].rect_dims,
-                    top_left,
-                    Vec2::from(width),
                 ) {
                     q.push_back(*child_idx);
                 }
             }
         }
-        ret
-    }
-    pub fn query_circle(&self, center: Vec2, radius: f64) -> Vec<T> {
-        let in_square = self.query_square(center - Vec2::from(radius), radius * 2.0);
-        let mut ret = Vec::new();
-        for item in in_square.iter() {
-            if item.pos().distance(&center) <= radius {
-                ret.push(*item);
-            }
-        }
+
         ret
     }
     pub fn query_circle_brute_force(&self, center: Vec2, radius: f64) -> Vec<T> {
@@ -371,22 +341,6 @@ fn test_quadtree_child_nodes() {
 }
 
 #[test]
-fn test_quadtree_query_square() {
-    let mut tree = QuadTree::new(Vec2::from(10.0));
-    for i in 0..10 {
-        for j in 0..10 {
-            tree.push(&Vec2::new(i as f64, j as f64));
-        }
-    }
-    assert_eq!(tree.query_square(Vec2::zero(), tree.dims.x).len(), 10 * 10);
-    assert_eq!(
-        tree.query_square(Vec2::zero(), tree.dims.x / 2.0).len(),
-        6 * 6
-    );
-    assert_eq!(tree.query_square(Vec2::new(0.5, 6.7), 3.4).len(), 3 * 3);
-}
-
-#[test]
 fn test_quadtree_query_circle() {
     let mut tree = QuadTree::new(Vec2::from(10.0));
     for i in 0..=10 {
@@ -419,9 +373,6 @@ fn test_quadtree_query_circle() {
     tree.push(&Vec2::new(906.0, 71.0));
     tree.push(&Vec2::new(917.0, 62.0));
     tree.push(&Vec2::new(889.0, 96.0));
-    assert!(!tree
-        .query_square(Vec2::new(873.0, 77.0) - Vec2::from(145.0), 145.0 * 2.0)
-        .is_empty());
     assert!(!tree.query_circle(Vec2::new(873.0, 77.0), 145.0).is_empty());
     assert_eq!(
         tree.query_circle(Vec2::new(873.0, 77.0), 145.0).len(),

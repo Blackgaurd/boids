@@ -1,5 +1,5 @@
 // import from .js file because im lazy to configure ts
-import init, { RollingAverage, Vec2, World } from "./pkg/boids.js";
+import init, { Boid, RollingAverage, Vec2, World } from "./pkg/boids.js";
 
 let canvas = document.getElementById("canvas") as HTMLCanvasElement;
 let ctx = canvas.getContext("2d");
@@ -36,9 +36,23 @@ let turnFactorSlider = document.getElementById(
     "turn-factor"
 ) as HTMLInputElement;
 
-const BOIDS_SIZE = 5;
+const BOIDS_SIZE = 6;
 const INTERVAL_MS = 5;
 const AVG_WINDOW = 100;
+
+// world settings
+let numBoids = 5000;
+let protectedRange = 8;
+let visibleRange = 32;
+let avoidFactor = 0.05;
+let alignFactor = 0.05;
+let cohesionFactor = 0.0005;
+let margin = 25;
+let turnFactor = 0.2;
+let maxSpeed = 4;
+let minSpeed = 1;
+
+let intervalId: number = undefined;
 
 class Duration {
     start: number;
@@ -54,20 +68,73 @@ function randRange(min: number, max: number) {
     return Math.random() * (max - min) + min;
 }
 
-function drawBoids(world: World) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "blue";
-    for (let i = 0; i < world.num_boids(); i++) {
-        let boid = world.get_boid(i);
-        let vel = boid.vel.normalize().mul_num(BOIDS_SIZE);
-        let bot_left = vel.rotate((Math.PI * 11) / 12).add_vec(boid.pos);
-        let bot_right = vel.rotate((Math.PI * 13) / 12).add_vec(boid.pos);
+// https://stackoverflow.com/questions/2353211/
+function hueToRgb(p: number, q: number, t: number): number {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+}
 
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+    if (s == 0) {
+        return [l, l, l];
+    }
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    let r = hueToRgb(p, q, h + 1 / 3);
+    let g = hueToRgb(p, q, h);
+    let b = hueToRgb(p, q, h - 1 / 3);
+
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+// https://stackoverflow.com/questions/17525215/calculate-color-values-from-green-to-red/17527156#17527156
+function speedToColor(speed: Vec2): string {
+    // slower boids are more red
+    // faster boids are more green
+    let speedMag = speed.length();
+    let hue = ((speedMag - minSpeed) / (maxSpeed - minSpeed)) * 120;
+    let [r, g, b] = hslToRgb(hue / 360, 1, 0.5);
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+function drawBoids(world: World) {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < numBoids; i++) {
+        let boid = world.get_boid(i);
+        // cache pos and vel to avoid repeated WASM allocations
+        let pos = boid.pos;
+        let vel = boid.vel;
+
+        let vel_norm = vel.normalize();
+        let vel_dir = vel_norm.mul_num(BOIDS_SIZE);
+        vel_norm.free();
+
+        let rot1 = vel_dir.rotate((Math.PI * 11) / 12);
+        let bot_left = rot1.add_vec(pos);
+        rot1.free();
+
+        let rot2 = vel_dir.rotate((Math.PI * 13) / 12);
+        let bot_right = rot2.add_vec(pos);
+        rot2.free();
+        vel_dir.free();
+
+        ctx.fillStyle = speedToColor(vel);
         ctx.beginPath();
-        ctx.moveTo(boid.pos.x, boid.pos.y);
+        ctx.moveTo(pos.x, pos.y);
         ctx.lineTo(bot_left.x, bot_left.y);
         ctx.lineTo(bot_right.x, bot_right.y);
         ctx.fill();
+
+        bot_left.free();
+        bot_right.free();
+        vel.free();
+        pos.free();
+        boid.free();
     }
 
     if (debug) {
@@ -76,34 +143,28 @@ function drawBoids(world: World) {
         ctx.lineWidth = 1;
         for (let i = 0; i < world.num_boids(); i++) {
             let boid = world.get_boid(i);
+            let pos = boid.pos;
             ctx.beginPath();
-            ctx.arc(
-                boid.pos.x,
-                boid.pos.y,
-                world.protect_range,
-                0,
-                Math.PI * 2
-            );
+            ctx.arc(pos.x, pos.y, world.protect_range, 0, Math.PI * 2);
             ctx.stroke();
+            pos.free();
+            boid.free();
         }
 
         // draw visible range
-        ctx.strokeStyle = "green";
+        ctx.strokeStyle = "blue";
         for (let i = 0; i < world.num_boids(); i++) {
             let boid = world.get_boid(i);
+            let pos = boid.pos;
             ctx.beginPath();
-            ctx.arc(
-                boid.pos.x,
-                boid.pos.y,
-                world.visible_range,
-                0,
-                Math.PI * 2
-            );
+            ctx.arc(pos.x, pos.y, world.visible_range, 0, Math.PI * 2);
             ctx.stroke();
+            pos.free();
+            boid.free();
         }
 
         // draw margins
-        ctx.strokeStyle = "black";
+        ctx.strokeStyle = "white";
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.rect(
@@ -118,21 +179,9 @@ function drawBoids(world: World) {
 
 init().then(() => {
     // wasm initialized
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = window.outerWidth;
+    canvas.height = window.outerHeight;
     let dims = Vec2.new(canvas.width, canvas.height);
-    let numBoids = 5000;
-
-    // world settings
-    let protectedRange = 8;
-    let visibleRange = 32;
-    let avoidFactor = 0.05;
-    let alignFactor = 0.05;
-    let cohesionFactor = 0.0005;
-    let margin = 25;
-    let turnFactor = 0.2;
-    let maxSpeed = 6;
-    let minSpeed = 2;
 
     let world = World.new(
         dims,
@@ -149,8 +198,8 @@ init().then(() => {
 
     for (let i = 0; i < numBoids; i++) {
         world.add_boid(
-            Vec2.rand_01().mul_vec(dims),
-            Vec2.rand_01()
+            Vec2.js_rand_01().mul_vec(dims),
+            Vec2.js_rand_01()
                 .mul_num(2)
                 .sub_num(1)
                 .normalize()
@@ -196,16 +245,15 @@ init().then(() => {
         world.turn_factor = turnFactor;
     });
 
-    let interval: number = undefined;
     let avgTick = RollingAverage.new(AVG_WINDOW);
     let avgRender = RollingAverage.new(AVG_WINDOW);
     playButton.addEventListener("click", () => {
-        if (interval) {
-            clearInterval(interval);
-            interval = undefined;
+        if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = undefined;
             playButton.innerText = "Play";
         } else {
-            interval = setInterval(() => {
+            intervalId = setInterval(() => {
                 let start = new Duration();
                 world.tick();
                 avgTick.push(start.elapsed_ms());
